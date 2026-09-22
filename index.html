@@ -31,11 +31,17 @@
     var LIFF_ID = '2011507426-tZhrl4fx';
     var GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbyrnq8-V17V67NAcbJ2co1LHTKT0NYyjtjA7jy8QIpm49artVQrrnpI27YoMeKNEwmN/exec';
 
+    function stopSpin() {
+      var sp = document.querySelector('.spinner');
+      if (sp) { sp.style.display = 'none'; }
+    }
+
     (async function () {
       try {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) {
           if (!liff.isInClient()) {
+            stopSpin();
             document.getElementById('msg').textContent = 'お手数ですが、LINEアプリのメニューにある「欠席・遅刻連絡」からお開きください。';
             return;
           }
@@ -48,6 +54,7 @@
         }
         var idToken = liff.getIDToken();
         if (!idToken) {
+          stopSpin();
           document.getElementById('msg').textContent = 'ログイン情報の取得に失敗しました。時間をおいて再度お試しください。';
           return;
         }
@@ -67,6 +74,7 @@
         document.body.appendChild(form);
         form.submit();
       } catch (e) {
+        stopSpin();
         document.getElementById('msg').textContent = 'エラーが発生しました。時間をおいて再度お試しください。';
       }
     })();
