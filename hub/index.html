@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>WALK,</title>
+<style>
+body { font-family: "Noto Sans JP", system-ui, sans-serif; text-align: center; padding-top: 88px; color: #6a6055; background: #f3ebdf; margin: 0; }
+.spinner { margin: 0 auto 18px; width: 30px; height: 30px; border: 3px solid #e6dbca; border-top-color: #2d9cdb; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+p { font-size: 14px; line-height: 1.8; color: #6a6055; margin: 0 auto; max-width: 300px; padding: 0 20px; }
+.btn { display: inline-block; margin-top: 26px; padding: 13px 38px; background: #2d9cdb; color: #fff; border: 0; border-radius: 999px; font-size: 15px; font-weight: 700; font-family: inherit; }
+</style>
+</head>
+<body>
+<div id="loading">
+<div class="spinner"></div>
+<p id="msg">読み込んでいます…</p>
+</div>
+<div id="consentNotice" style="display:none;">
+<p>ご本人の確認のため、初回だけ確認画面が出ます。表示されたら「許可する」を選んでください。</p>
+<button class="btn" id="proceedBtn" type="button">進む</button>
+</div>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+var LIFF_ID = '2011507426-FOY9141W';
+var GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbzBdIkY05qZrrbJKgJ-AGByfFIk41ey1yIdugYPOojR7pLtnHvRQ29CcLIqDS9sChpcPA/exec';
+(async function () {
+var msg = document.getElementById('msg');
+try {
+await liff.init({ liffId: LIFF_ID });
+msg.textContent = 'ログインを確認しています…';
+if (!liff.isLoggedIn()) {
+if (!liff.isInClient()) {
+msg.textContent = 'お手数ですが、LINEアプリのメニューにある「マイページ」からお開きください。';
+return;
+}
+document.getElementById('loading').style.display = 'none';
+document.getElementById('consentNotice').style.display = 'block';
+document.getElementById('proceedBtn').addEventListener('click', function () {
+liff.login();
+});
+return;
+}
+var idToken = liff.getIDToken();
+if (!idToken) {
+msg.textContent = 'ログイン情報を取得できませんでした。時間をおいてお試しください。';
+return;
+}
+msg.textContent = '本人確認をしています…';
+var form = document.createElement('form');
+form.method = 'POST';
+form.action = GAS_EXEC_URL;
+function addField(name, value) {
+var el = document.createElement('input');
+el.type = 'hidden';
+el.name = name;
+el.value = value;
+form.appendChild(el);
+}
+addField('action', 'liffAuth');
+addField('idToken', idToken);
+document.body.appendChild(form);
+form.submit();
+} catch (e) {
+msg.textContent = 'エラーが発生しました。時間をおいてお試しください。';
+}
+})();
+</script>
+</body>
+</html>
