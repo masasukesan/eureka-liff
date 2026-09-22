@@ -27,11 +27,16 @@ var LIFF_ID = '2011507426-FOY9141W';
 var GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbzBdIkY05qZrrbJKgJ-AGByfFIk41ey1yIdugYPOojR7pLtnHvRQ29CcLIqDS9sChpcPA/exec';
 (async function () {
 var msg = document.getElementById('msg');
+function stopSpin() {
+var sp = document.querySelector('.spinner');
+if (sp) { sp.style.display = 'none'; }
+}
 try {
 await liff.init({ liffId: LIFF_ID });
 msg.textContent = 'ログインを確認しています…';
 if (!liff.isLoggedIn()) {
 if (!liff.isInClient()) {
+stopSpin();
 msg.textContent = 'お手数ですが、LINEアプリのメニューにある「マイページ」からお開きください。';
 return;
 }
@@ -44,6 +49,7 @@ return;
 }
 var idToken = liff.getIDToken();
 if (!idToken) {
+stopSpin();
 msg.textContent = 'ログイン情報を取得できませんでした。時間をおいてお試しください。';
 return;
 }
@@ -63,6 +69,7 @@ addField('idToken', idToken);
 document.body.appendChild(form);
 form.submit();
 } catch (e) {
+stopSpin();
 msg.textContent = 'エラーが発生しました。時間をおいてお試しください。';
 }
 })();
