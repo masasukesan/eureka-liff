@@ -1,83 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>欠席・振替のご連絡</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; padding-top: 80px; color: #555; }
-    .spinner { margin: 0 auto 16px; width: 32px; height: 32px; border: 4px solid #eee; border-top-color: #06c755; border-radius: 50%; animation: spin 0.8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .notice { max-width: 320px; margin: 0 auto; padding: 0 16px; line-height: 1.7; color: #333; }
-    .btn { display: inline-block; margin-top: 24px; padding: 12px 36px; background: #06c755; color: #fff; border: none; border-radius: 24px; font-size: 16px; font-weight: bold; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>欠席・振替のご連絡</title>
+<style>
+html, body { margin: 0; height: 100%; }
+body { font-family: sans-serif; text-align: center; color: #555; background: #fff; }
+#loading { padding-top: 80px; }
+.spinner { margin: 0 auto 16px; width: 32px; height: 32px; border: 4px solid #eee; border-top-color: #06c755; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.notice { max-width: 320px; margin: 0 auto; padding: 0 16px; line-height: 1.7; color: #333; }
+.btn { display: inline-block; margin-top: 24px; padding: 12px 36px; background: #06c755; color: #fff; border: none; border-radius: 24px; font-size: 16px; font-weight: bold; }
+#app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; background: #fff; }
+</style>
 </head>
 <body>
-  <div id="loading">
-    <div class="spinner"></div>
-    <p id="msg">読み込んでいます…</p>
-  </div>
-  <div id="consentNotice" style="display:none;">
-    <p class="notice">欠席連絡には、本人確認のため、初回のみ確認画面が表示されます。表示されたら「許可する」を選んでください。</p>
-    <button class="btn" id="proceedBtn" type="button">進む</button>
-  </div>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script>
-    // 2026-09-09: このページはGoogle Apps Scriptではなく、GitHub Pages(静的ホスティング)上に
-    // 単独で配置している。GASのWebアプリは全ページを入れ子のサンドボックス化iframeで包んでしまい、
-    // LIFFが公式に非対応とする「iframeに埋め込まれた状態」を作ってしまうため、liff.init()が
-    // 完了しないまま固まる不具合が実機(LINEアプリ)で確認された。このページ自体はGoogleの
-    // ラッピングを受けないトップレベルの独立ページなので、その問題を回避できる。
-    var LIFF_ID = '2011507426-tZhrl4fx';
-    var GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbyrnq8-V17V67NAcbJ2co1LHTKT0NYyjtjA7jy8QIpm49artVQrrnpI27YoMeKNEwmN/exec';
-
-    function stopSpin() {
-      var sp = document.querySelector('.spinner');
-      if (sp) { sp.style.display = 'none'; }
-    }
-
-    (async function () {
-      try {
-        await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) {
-          if (!liff.isInClient()) {
-            stopSpin();
-            document.getElementById('msg').textContent = 'お手数ですが、LINEアプリのメニューにある「欠席・遅刻連絡」からお開きください。';
-            return;
-          }
-          document.getElementById('loading').style.display = 'none';
-          document.getElementById('consentNotice').style.display = 'block';
-          document.getElementById('proceedBtn').addEventListener('click', function () {
-            liff.login();
-          });
-          return;
-        }
-        var idToken = liff.getIDToken();
-        if (!idToken) {
-          stopSpin();
-          document.getElementById('msg').textContent = 'ログイン情報の取得に失敗しました。時間をおいて再度お試しください。';
-          return;
-        }
-        var form = document.createElement('form');
-        form.method = 'POST';
-        form.action = GAS_EXEC_URL;
-        function addField(name, value) {
-          var el = document.createElement('input');
-          el.type = 'hidden';
-          el.name = name;
-          el.value = value;
-          form.appendChild(el);
-        }
-        addField('flow', 'absence');
-        addField('action', 'liffAuth');
-        addField('idToken', idToken);
-        document.body.appendChild(form);
-        form.submit();
-      } catch (e) {
+<div id="loading">
+<div class="spinner"></div>
+<p id="msg">読み込んでいます…</p>
+</div>
+<div id="consentNotice" style="display:none; padding-top:80px;">
+<p class="notice">欠席連絡には、本人確認のため、初回のみ確認画面が表示されます。表示されたら「許可する」を選んでください。</p>
+<button class="btn" id="proceedBtn" type="button">進む</button>
+</div>
+<iframe id="app" name="app" title="欠席・振替のご連絡"></iframe>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+// 2026-09-24: 欠席・振替をiframeに入れて、Googleの「このアプリケーションは…」の帯を出さない版。
+// GAS(学習塾ユリイカ_面談体験予約)側の 05_absence_embed.gs と対になっている。
+// GASの画面は自分へのリンク/フォームを postMessage で「開いて」「送って」と頼んでくるので、ここで iframe に流し込む。
+// 中継が効かない端末でも、GAS画面のリンクは target=_top のままなので「帯ありの従来画面」に抜けるだけで壊れない。
+// 旧版(iframeなし)は walk_欠席埋め込み_20260924/cloudflare/_旧版_root_20260924/index.html
+var LIFF_ID = '2011507426-tZhrl4fx';
+var GAS_EXEC_URL = 'https://script.google.com/macros/s/AKfycbyrnq8-V17V67NAcbJ2co1LHTKT0NYyjtjA7jy8QIpm49artVQrrnpI27YoMeKNEwmN/exec';
+var frame = document.getElementById('app');
+var msg = document.getElementById('msg');
+var shown = false;
+function stopSpin() {
+  var sp = document.querySelector('.spinner');
+  if (sp) { sp.style.display = 'none'; }
+}
+function showApp() {
+  if (shown) return;
+  shown = true;
+  document.getElementById('loading').style.display = 'none';
+  frame.style.display = 'block';
+}
+function postToFrame(url, fields) {
+  var form = document.createElement('form');
+  form.method = 'POST';
+  form.action = url;
+  form.target = 'app';
+  form.style.display = 'none';
+  for (var i = 0; i < fields.length; i++) {
+    var el = document.createElement('input');
+    el.type = 'hidden';
+    el.name = String(fields[i][0]);
+    el.value = String(fields[i][1]);
+    form.appendChild(el);
+  }
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+}
+function isOurExec(u) {
+  return typeof u === 'string' && (u === GAS_EXEC_URL || u.indexOf(GAS_EXEC_URL + '?') === 0);
+}
+window.addEventListener('message', function (ev) {
+  // GASの画面(googleusercontent.com)からの頼みだけ受ける。
+  if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(ev.origin || '')) return;
+  var d = ev.data;
+  if (!d || typeof d !== 'object') return;
+  if (d.walk === 'ready') { showApp(); return; }
+  if (d.walk === 'nav' && isOurExec(d.url)) { frame.src = d.url; return; }
+  if (d.walk === 'post' && isOurExec(d.url) && Array.isArray(d.fields)) { postToFrame(d.url, d.fields); return; }
+});
+// 念のため: readyが来なくても、iframeが読み込み終わったら表示する(旧端末対策)。
+frame.addEventListener('load', function () { if (frame.getAttribute('data-started')) setTimeout(showApp, 1500); });
+(async function () {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) {
+      if (!liff.isInClient()) {
         stopSpin();
-        document.getElementById('msg').textContent = 'エラーが発生しました。時間をおいて再度お試しください。';
+        msg.textContent = 'お手数ですが、LINEアプリのメニューにある「欠席・遅刻連絡」からお開きください。';
+        return;
       }
-    })();
-  </script>
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('consentNotice').style.display = 'block';
+      document.getElementById('proceedBtn').addEventListener('click', function () { liff.login(); });
+      return;
+    }
+    var idToken = liff.getIDToken();
+    if (!idToken) {
+      stopSpin();
+      msg.textContent = 'ログイン情報の取得に失敗しました。時間をおいて再度お試しください。';
+      return;
+    }
+    frame.setAttribute('data-started', '1');
+    postToFrame(GAS_EXEC_URL, [['flow', 'absence'], ['action', 'liffAuth'], ['idToken', idToken]]);
+  } catch (e) {
+    stopSpin();
+    msg.textContent = 'エラーが発生しました。時間をおいて再度お試しください。';
+  }
+})();
+</script>
 </body>
 </html>
