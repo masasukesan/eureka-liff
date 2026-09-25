@@ -17,13 +17,22 @@
       menu: '欠席・遅刻連絡',
       consent: '欠席連絡には、本人確認のため、初回のみ確認画面が表示されます。表示されたら「許可する」を選んでください。',
       fields: [['flow', 'absence']]
+    },
+    // 2026-09-25追加: 教室の入退室タブレット。LINEログインは使わない。
+    // URL は /s/<塾キー>/tablet/#k=<教室の鍵>(ハブの「教室のタブレットをつなぐ」のQRがこの形)。
+    // 鍵は # の後ろに置くので、この入口ページのサーバー(Cloudflare)には送られない。
+    tablet: {
+      title: '入退室',
+      menu: '入退室',
+      consent: '',
+      noLiff: true
     }
   };
 
   function parsePath(p) {
-    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub)\/?)?)?$/.exec(String(p || ''));
+    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet)\/?)?)?$/.exec(String(p || ''));
     if (!m) return null;
-    return { key: m[1], kind: m[2] ? 'hub' : 'absence' };
+    return { key: m[1], kind: m[2] || 'absence' };
   }
 
   function findSchool(schools, key) {
@@ -46,7 +55,7 @@
     var route = parsePath(win.location.pathname);
     var school = route && findSchool(win.WALK_SCHOOLS, route.key);
     var conf = school && school[route.kind];
-    if (!route || !conf || !conf.liffId || !conf.execUrl) {
+    if (!route || !conf || !conf.execUrl || (!conf.liffId && !(KINDS[route.kind] && KINDS[route.kind].noLiff))) {
       doc.title = 'ページが見つかりません';
       fail('ページが見つかりません。LINEの教室アカウントのメニューから開き直してください。');
       return { ok: false };
@@ -95,6 +104,18 @@
     });
     // readyが来なくても、iframeが読み込み終わったら表示する(旧端末対策)。
     frame.addEventListener('load', function () { if (frame.getAttribute('data-started')) win.setTimeout(showApp, 1500); });
+
+    if (kind.noLiff) {
+      // タブレット: # の後ろの鍵を付けて、そのまま iframe で開く。
+      var km = /(?:^#|&)k=([A-Za-z0-9_-]{8,200})(?:&|$)/.exec(String(win.location.hash || ''));
+      if (!km) {
+        fail('この端末はまだつながっていません。ハブの「教室のタブレットをつなぐ」に出るQRを読んで開いてください。');
+        return { ok: false, key: route.key, kind: route.kind };
+      }
+      frame.setAttribute('data-started', '1');
+      frame.src = GAS_EXEC_URL + '?k=' + km[1];
+      return { ok: true, key: route.key, kind: route.kind };
+    }
 
     var liff = win.liff;
     var done = (async function () {

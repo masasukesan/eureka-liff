@@ -6,6 +6,7 @@
 // LIFF のエンドポイントURL:
 //   欠席・振替   https://<このサイト>/s/<塾キー>/
 //   マイページ   https://<このサイト>/s/<塾キー>/hub/
+// 入退室タブレット(LIFFなし) https://<このサイト>/s/<塾キー>/tablet/  ← ハブの「教室のタブレットをつなぐ」に登録するURL
 // GAS側のスクリプトプロパティ ABSENCE_EMBED_ORIGINS / HUB_EMBED_ORIGINS には https://<このサイト> を入れる。
 window.WALK_SCHOOLS = {
   eureka: {
@@ -17,6 +18,10 @@ window.WALK_SCHOOLS = {
     absence: {
       liffId: '2011507426-tZhrl4fx',
       execUrl: 'https://script.google.com/macros/s/AKfycbyrnq8-V17V67NAcbJ2co1LHTKT0NYyjtjA7jy8QIpm49artVQrrnpI27YoMeKNEwmN/exec'
+    },
+    // 入退室タブレット(2026-09-25〜)。鍵はここに書かない(ハブのQRが #k= で渡す)。
+    tablet: {
+      execUrl: 'https://script.google.com/macros/s/AKfycbzPLs_X1jMwLyZ40122I__HHN5E7NrsoA3ObgdSmQF2TPnrzECdmix6hm0Q-gu-ZsMI/exec'
     }
   }
 };
