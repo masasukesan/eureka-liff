@@ -23,5 +23,20 @@ window.WALK_SCHOOLS = {
     tablet: {
       execUrl: 'https://script.google.com/macros/s/AKfycbzPLs_X1jMwLyZ40122I__HHN5E7NrsoA3ObgdSmQF2TPnrzECdmix6hm0Q-gu-ZsMI/exec'
     }
+  },
+  // 架空の2校目(導入リハーサル用・IAW / iaw-ukiha.com、2026-09-26〜)
+  'iaw-test': {
+    name: 'IAWテスト教室',
+    hub: {
+      liffId: '2011752983-cCRhh3Xj',
+      execUrl: 'https://script.google.com/macros/s/AKfycbzJ1UE1Bv73w5-affwMW2ik-VxcXRhZOb6LLgBAOpubTK6BOKZOxKy-2FCu-c2llWLz/exec'
+    },
+    absence: {
+      liffId: '2011752983-shuXm1xf',
+      execUrl: 'https://script.google.com/macros/s/AKfycbzlfp-YWgReB4Pk-9HdX_DQ3ZnM5bSjeO49MXN_rjsofbfuxag8_QnwN4pvmubkuHzehA/exec'
+    },
+    tablet: {
+      execUrl: 'https://script.google.com/macros/s/AKfycbyI4vo0BNonRWDuT8IeXF76UAfaN_sS8cnXYI0PR1L1yOc7QwHHFYYkKL2UdlOwAJ_JfQ/exec'
+    }
   }
 };
