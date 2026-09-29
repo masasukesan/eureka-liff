@@ -18,6 +18,15 @@
       consent: '欠席連絡には、本人確認のため、初回のみ確認画面が表示されます。表示されたら「許可する」を選んでください。',
       fields: [['flow', 'absence']]
     },
+    // 2026-09-29追加: マイページの「面談の予約」。欠席連絡と同じ LIFF(https://liff.line.me/<欠席のLIFF ID>/meeting)で開き、
+    // 同じ /exec(面談体験予約プロジェクト)へ flow=meeting で本人確認を送る。schools.js に meeting が無ければ absence の値を使う。
+    meeting: {
+      title: '面談のご予約',
+      menu: 'マイページ',
+      consent: '面談のご予約には、本人確認のため、初回のみ確認画面が表示されます。表示されたら「許可する」を選んでください。',
+      fields: [['flow', 'meeting']],
+      confFrom: 'absence'
+    },
     // 2026-09-25追加: 教室の入退室タブレット。LINEログインは使わない。
     // URL は /s/<塾キー>/tablet/#k=<教室の鍵>(ハブの「教室のタブレットをつなぐ」のQRがこの形)。
     // 鍵は # の後ろに置くので、この入口ページのサーバー(Cloudflare)には送られない。
@@ -30,9 +39,20 @@
   };
 
   function parsePath(p) {
-    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet)\/?)?)?$/.exec(String(p || ''));
+    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting)\/?)?)?$/.exec(String(p || ''));
     if (!m) return null;
     return { key: m[1], kind: m[2] || 'absence' };
+  }
+
+  // LIFF の1回目の転送では /s/<塾キー>/?liff.state=meeting/ の形で来る(2回目の転送で /s/<塾キー>/meeting/ になる)。
+  // 1回目の時点で面談だと分かるように liff.state の先頭を見る。
+  function kindFromLiffState(search) {
+    var m = /[?&]liff\.state=([^&#]*)/.exec(String(search || ''));
+    if (!m) return '';
+    var v = '';
+    try { v = decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return ''; }
+    var k = /^\/?(hub|tablet|meeting)(?:[\/?#]|$)/.exec(v);
+    return k ? k[1] : '';
   }
 
   function findSchool(schools, key) {
@@ -53,8 +73,12 @@
     function fail(text) { stopSpin(); msg.textContent = text; }
 
     var route = parsePath(win.location.pathname);
+    // 待つのは「行き先の分かる liff.state(meeting/ 等)」が付いているときだけ。空や他の値では待たない。
+    var hasLiffState = kindFromLiffState(win.location.search) !== '';
+    if (route && route.kind === 'absence' && kindFromLiffState(win.location.search) === 'meeting') route.kind = 'meeting';
     var school = route && findSchool(win.WALK_SCHOOLS, route.key);
-    var conf = school && school[route.kind];
+    var conf = school && (school[route.kind] ||
+      (KINDS[route.kind] && KINDS[route.kind].confFrom ? school[KINDS[route.kind].confFrom] : null));
     if (!route || !conf || !conf.execUrl || (!conf.liffId && !(KINDS[route.kind] && KINDS[route.kind].noLiff))) {
       doc.title = 'ページが見つかりません';
       fail('ページが見つかりません。LINEの教室アカウントのメニューから開き直してください。');
@@ -135,8 +159,13 @@
         var idToken = liff.getIDToken();
         if (!idToken) { fail('ログイン情報を取得できませんでした。時間をおいてお試しください。'); return; }
         msg.textContent = '本人確認をしています…';
-        frame.setAttribute('data-started', '1');
-        postToFrame(GAS_EXEC_URL, kind.fields.concat([['action', 'liffAuth'], ['idToken', idToken]]));
+        var go = function () {
+          frame.setAttribute('data-started', '1');
+          postToFrame(GAS_EXEC_URL, kind.fields.concat([['action', 'liffAuth'], ['idToken', idToken]]));
+        };
+        // liff.state 付きで来たときは、LIFF がこの後 /s/<塾キー>/meeting/ などへ移し直すことがある。
+        // 二重に本人確認を送らないよう少し待ち、移らなければそのまま進む。
+        if (hasLiffState) win.setTimeout(go, 2500); else go();
       } catch (e) {
         fail('エラーが発生しました。時間をおいてお試しください。');
       }
@@ -144,6 +173,6 @@
     return { ok: true, key: route.key, kind: route.kind, liffId: LIFF_ID, done: done };
   }
 
-  window.WALK_ENTRY = { parsePath: parsePath, KINDS: KINDS };
+  window.WALK_ENTRY = { parsePath: parsePath, KINDS: KINDS, kindFromLiffState: kindFromLiffState };
   if (!window.WALK_ENTRY_NO_AUTOSTART) window.WALK_ENTRY.result = start(window);
 })();
