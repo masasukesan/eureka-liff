@@ -1,5 +1,5 @@
 // WALK, 入口ページの共通ロジック(2026-09-25〜)。
-// URL /s/<塾キー>/(欠席・振替) /s/<塾キー>/hub/(マイページ) から塾と種類を決め、
+// URL /s/<塾キー>/(欠席・振替) /s/<塾キー>/hub/(マイページ) /s/<塾キー>/trial/(体験予約・LINEログインなし)から塾と種類を決め、
 // schools.js の LIFF ID・/exec URL で「LIFFログイン → GASを iframe に表示(Googleの帯なし)」を行う。
 // GAS側の 14_hub_embed.gs / 05_absence_embed.gs と対。GAS画面は自分へのリンク/フォームを
 // postMessage(nav/post/ready)で頼んでくるので、ここで iframe に流し込む。
@@ -35,11 +35,20 @@
       menu: '入退室',
       consent: '',
       noLiff: true
+    },
+    // 2026-10-05追加: 紹介リンクから開く体験授業の予約。受け取るのは塾に未登録の人なので LINEログインは使わない。
+    // URL は /s/<塾キー>/trial/?ref=<紹介コード>。欠席と同じ /exec(予約プロジェクト B)を ?type=trial で iframe に入れる(Googleの帯なし)。
+    trial: {
+      title: '体験授業のご予約',
+      menu: '体験授業',
+      consent: '',
+      noLiff: true,
+      confFrom: 'absence'
     }
   };
 
   function parsePath(p) {
-    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting)\/?)?)?$/.exec(String(p || ''));
+    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting|trial)\/?)?)?$/.exec(String(p || ''));
     if (!m) return null;
     return { key: m[1], kind: m[2] || 'absence' };
   }
@@ -53,6 +62,41 @@
     try { v = decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return ''; }
     var k = /^\/?(hub|tablet|meeting)(?:[\/?#]|$)/.exec(v);
     return k ? k[1] : '';
+  }
+
+  // 2026-10-05: マイページ(hub)で最初に開く画面。https://liff.line.me/<LIFF ID>?screen=referral で来る。
+  // 2回目の転送の形 ?screen=referral と、1回目の転送の形 ?liff.state=(?screen=referral をエンコード)の両方を読む。
+  // 受け付けるのは HUB_SCREENS にある値だけ(大文字・ほかの値・不正な値は '')。from は 'search' か 'liffState'。
+  var HUB_SCREENS = { referral: true };
+  function screenParam(query) {
+    var parts = String(query || '').split('&');
+    for (var i = 0; i < parts.length; i++) {
+      var eq = parts[i].indexOf('=');
+      if (eq < 0 || parts[i].slice(0, eq) !== 'screen') continue;
+      var v = parts[i].slice(eq + 1);
+      return Object.prototype.hasOwnProperty.call(HUB_SCREENS, v) ? v : '';
+    }
+    return '';
+  }
+  function hubScreenFromSearch(search) {
+    var s = String(search || '').replace(/^\?/, '').split('#')[0];
+    var direct = screenParam(s);
+    if (direct) return { screen: direct, from: 'search' };
+    var m = /(?:^|&)liff\.state=([^&#]*)/.exec(s);
+    if (!m) return { screen: '', from: '' };
+    var v = '';
+    try { v = decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return { screen: '', from: '' }; }
+    v = v.split('#')[0];
+    var q = v.indexOf('?');
+    if (q < 0) return { screen: '', from: '' };
+    var inState = screenParam(v.slice(q + 1));
+    return inState ? { screen: inState, from: 'liffState' } : { screen: '', from: '' };
+  }
+
+  // 2026-10-05: 体験予約の紹介コード。B の BOOKING_REF_PATTERN と同じ形(英数字8文字)だけ通す。
+  function refFromSearch(search) {
+    var m = /[?&]ref=([^&#]*)/.exec(String(search || ''));
+    return m && /^[A-Za-z0-9]{8}$/.test(m[1]) ? m[1] : '';
   }
 
   function findSchool(schools, key) {
@@ -76,6 +120,9 @@
     // 待つのは「行き先の分かる liff.state(meeting/ 等)」が付いているときだけ。空や他の値では待たない。
     var hasLiffState = kindFromLiffState(win.location.search) !== '';
     if (route && route.kind === 'absence' && kindFromLiffState(win.location.search) === 'meeting') route.kind = 'meeting';
+    // マイページだけ、開く画面(screen=referral)を読む。liff.state の中にあったときも、2回目の転送を待つ。
+    var hubStart = route && route.kind === 'hub' ? hubScreenFromSearch(win.location.search) : { screen: '', from: '' };
+    if (hubStart.from === 'liffState') hasLiffState = true;
     var school = route && findSchool(win.WALK_SCHOOLS, route.key);
     var conf = school && (school[route.kind] ||
       (KINDS[route.kind] && KINDS[route.kind].confFrom ? school[KINDS[route.kind].confFrom] : null));
@@ -129,6 +176,13 @@
     // readyが来なくても、iframeが読み込み終わったら表示する(旧端末対策)。
     frame.addEventListener('load', function () { if (frame.getAttribute('data-started')) win.setTimeout(showApp, 1500); });
 
+    if (route.kind === 'trial') {
+      // 体験予約: LINEログインなし。紹介コードは形が正しいときだけ付ける(それ以外は捨てて、紹介なしの体験予約)。
+      var ref = refFromSearch(win.location.search);
+      frame.setAttribute('data-started', '1');
+      frame.src = GAS_EXEC_URL + '?type=trial' + (ref ? '&ref=' + ref : '');
+      return { ok: true, key: route.key, kind: route.kind };
+    }
     if (kind.noLiff) {
       // タブレット: # の後ろの鍵を付けて、そのまま iframe で開く。
       var km = /(?:^#|&)k=([A-Za-z0-9_-]{8,200})(?:&|$)/.exec(String(win.location.hash || ''));
@@ -153,7 +207,15 @@
           }
           doc.getElementById('loading').style.display = 'none';
           doc.getElementById('consentNotice').style.display = 'block';
-          doc.getElementById('proceedBtn').addEventListener('click', function () { liff.login(); });
+          doc.getElementById('proceedBtn').addEventListener('click', function () {
+            // 紹介画面を開くつもりで来たときは、ログイン後も ?screen=referral が残るように戻り先を渡す。
+            // (redirectUri は LIFF のエンドポイントURL /s/<塾キー>/hub/ で始まる必要がある。そろえた形で作る)
+            if (hubStart.screen) {
+              liff.login({ redirectUri: win.location.origin + win.location.pathname.replace(/\/?$/, '/') + '?screen=' + hubStart.screen });
+            } else {
+              liff.login();
+            }
+          });
           return;
         }
         var idToken = liff.getIDToken();
@@ -161,7 +223,9 @@
         msg.textContent = '本人確認をしています…';
         var go = function () {
           frame.setAttribute('data-started', '1');
-          postToFrame(GAS_EXEC_URL, kind.fields.concat([['action', 'liffAuth'], ['idToken', idToken]]));
+          var fields = kind.fields.concat([['action', 'liffAuth'], ['idToken', idToken]]);
+          if (hubStart.screen) fields.push(['screen', hubStart.screen]); // マイページ D の handleHubLiffAuth_ が読む
+          postToFrame(GAS_EXEC_URL, fields);
         };
         // liff.state 付きで来たときは、LIFF がこの後 /s/<塾キー>/meeting/ などへ移し直すことがある。
         // 二重に本人確認を送らないよう少し待ち、移らなければそのまま進む。
@@ -173,6 +237,7 @@
     return { ok: true, key: route.key, kind: route.kind, liffId: LIFF_ID, done: done };
   }
 
-  window.WALK_ENTRY = { parsePath: parsePath, KINDS: KINDS, kindFromLiffState: kindFromLiffState };
+  window.WALK_ENTRY = { parsePath: parsePath, KINDS: KINDS, kindFromLiffState: kindFromLiffState,
+    hubScreenFromSearch: hubScreenFromSearch, refFromSearch: refFromSearch };
   if (!window.WALK_ENTRY_NO_AUTOSTART) window.WALK_ENTRY.result = start(window);
 })();
