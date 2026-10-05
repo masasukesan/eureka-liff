@@ -7,6 +7,7 @@
 //   欠席・振替   https://<このサイト>/s/<塾キー>/
 //   マイページ   https://<このサイト>/s/<塾キー>/hub/
 // 入退室タブレット(LIFFなし) https://<このサイト>/s/<塾キー>/tablet/  ← ハブの「教室のタブレットをつなぐ」に登録するURL
+// ★name は各塾ブロックの最初の行に書く(リンクの説明文=OGP を作る functions/s/[[path]].js がそこを読む。2026-10-05〜)。
 // GAS側のスクリプトプロパティ ABSENCE_EMBED_ORIGINS / HUB_EMBED_ORIGINS には https://<このサイト> を入れる。
 window.WALK_SCHOOLS = {
   eureka: {
