@@ -67,7 +67,8 @@
   // 2026-10-05: マイページ(hub)で最初に開く画面。https://liff.line.me/<LIFF ID>?screen=referral で来る。
   // 2回目の転送の形 ?screen=referral と、1回目の転送の形 ?liff.state=(?screen=referral をエンコード)の両方を読む。
   // 受け付けるのは HUB_SCREENS にある値だけ(大文字・ほかの値・不正な値は '')。from は 'search' か 'liffState'。
-  var HUB_SCREENS = { referral: true };
+  // 2026-10-28: calendar(リッチメニューの「教室カレンダー」 ?screen=calendar)も足した。D 側のホワイトリストと同じ2つ。
+  var HUB_SCREENS = { referral: true, calendar: true };
   function screenParam(query) {
     var parts = String(query || '').split('&');
     for (var i = 0; i < parts.length; i++) {
