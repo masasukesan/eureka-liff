@@ -44,11 +44,20 @@
       consent: '',
       noLiff: true,
       confFrom: 'absence'
+    },
+    // 2026-11-02追加: お問い合わせフォーム(HP の Googleフォームの代わり)。体験予約と同じく LINEログインは使わない。
+    // URL は /s/<塾キー>/inquiry/。欠席と同じ /exec(予約プロジェクト B)を ?type=inquiry で iframe に入れる(Googleの帯なし)。
+    inquiry: {
+      title: 'お問い合わせ',
+      menu: 'お問い合わせ',
+      consent: '',
+      noLiff: true,
+      confFrom: 'absence'
     }
   };
 
   function parsePath(p) {
-    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting|trial)\/?)?)?$/.exec(String(p || ''));
+    var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting|trial|inquiry)\/?)?)?$/.exec(String(p || ''));
     if (!m) return null;
     return { key: m[1], kind: m[2] || 'absence' };
   }
@@ -182,6 +191,12 @@
       var ref = refFromSearch(win.location.search);
       frame.setAttribute('data-started', '1');
       frame.src = GAS_EXEC_URL + '?type=trial' + (ref ? '&ref=' + ref : '');
+      return { ok: true, key: route.key, kind: route.kind };
+    }
+    if (route.kind === 'inquiry') {
+      // 2026-11-02 お問い合わせフォーム: LINEログインなし・引き継ぐ値なし
+      frame.setAttribute('data-started', '1');
+      frame.src = GAS_EXEC_URL + '?type=inquiry';
       return { ok: true, key: route.key, kind: route.kind };
     }
     if (kind.noLiff) {
