@@ -11,13 +11,14 @@ var OGP_TEXT = {
   absence: { title: '欠席・振替のご連絡', desc: 'お休み・遅刻のご連絡はこちらから' },
   meeting: { title: '面談のご予約', desc: 'ご希望の日時を選んで、面談を予約できます(LINEでひらきます)' },
   tablet: { title: '入退室', desc: '教室の入退室の記録用ページです' },
-  trial: { title: '体験授業のご予約', desc: 'ご希望の日時を選んで、体験授業を予約できます' }
+  trial: { title: '体験授業のご予約', desc: 'ご希望の日時を選んで、体験授業を予約できます' },
+  inquiry: { title: 'お問い合わせ', desc: '教室へのお問い合わせはこちらから' } // 2026-11-02
 };
 var OGP_NOT_FOUND = { title: 'ページが見つかりません', desc: 'LINEの教室アカウントのメニューから開き直してください。' };
 
 // walk-entry.js の parsePath と同じ形だけ受け付ける。
 function ogpParsePath(p) {
-  var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting|trial)\/?)?)?$/.exec(String(p || ''));
+  var m = /^\/s\/([a-z0-9-]{1,40})(?:\/(?:(hub|tablet|meeting|trial|inquiry)\/?)?)?$/.exec(String(p || ''));
   if (!m) return null;
   return { key: m[1], kind: m[2] || 'absence' };
 }
