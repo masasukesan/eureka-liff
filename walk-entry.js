@@ -109,6 +109,18 @@
     return m && /^[A-Za-z0-9]{8}$/.test(m[1]) ? m[1] : '';
   }
 
+  // 2026-11-10 問い合わせの校舎(?campus=<番号 or 名前>)。数字1〜2けた、または30文字までの文字(記号の < > " ' & は捨てる)。
+  //   GAS(B)が設定シート「校舎」の一覧と照らすので、ここでは形だけ見て、そのまま渡す(エンコードし直す)。
+  function campusFromSearch(search) {
+    var m = /[?&]campus=([^&#]*)/.exec(String(search || ''));
+    if (!m) return '';
+    var v = '';
+    try { v = decodeURIComponent(m[1].replace(/\+/g, ' ')); } catch (e) { return ''; }
+    v = v.replace(/^\s+|\s+$/g, '');
+    if (!v || v.length > 30 || /[<>"'&\x00-\x1f]/.test(v)) return '';
+    return encodeURIComponent(v);
+  }
+
   function findSchool(schools, key) {
     if (!schools || !Object.prototype.hasOwnProperty.call(schools, key)) return null;
     return schools[key];
@@ -194,9 +206,10 @@
       return { ok: true, key: route.key, kind: route.kind };
     }
     if (route.kind === 'inquiry') {
-      // 2026-11-02 お問い合わせフォーム: LINEログインなし・引き継ぐ値なし
+      // 2026-11-02 お問い合わせフォーム: LINEログインなし。2026-11-10 校舎(?campus=)だけ引き継ぐ
+      var campus = campusFromSearch(win.location.search);
       frame.setAttribute('data-started', '1');
-      frame.src = GAS_EXEC_URL + '?type=inquiry';
+      frame.src = GAS_EXEC_URL + '?type=inquiry' + (campus ? '&campus=' + campus : '');
       return { ok: true, key: route.key, kind: route.kind };
     }
     if (kind.noLiff) {
